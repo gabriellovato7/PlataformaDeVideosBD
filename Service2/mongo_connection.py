@@ -3,12 +3,12 @@ from pymongo import MongoClient
 
 def connect_mongo():
     try:
-        uri = "mongodb+srv://gabriellcc20_db_user:3VrmZvOWy5dtbcdH@cluster0.ejpww0t.mongodb.net/"
+        uri = "mongodb+srv://gabriellcc20_db_user:TEi7JhRIFqDyXQUa@cluster0.ejpww0t.mongodb.net/?retryWrites=true&w=majority&tls=true"
 
         client = MongoClient(uri)
         db = client["PlataformadeVideos"] 
 
-        print("Conexao realizada")
+        print("Conexao realizada mongo")
         return db
 
     except Exception as e:

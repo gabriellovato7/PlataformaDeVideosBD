@@ -11,7 +11,7 @@ def connect_postgres():
             password="Noronhja2004"      
         )
 
-        print("Conexao realizada")
+        print("Conexao realizada postgre")
         return connection
 
     except Exception as e:
