@@ -1,8 +1,8 @@
 import random
 from faker import Faker
 
-from postgres_connection import connect_postgres
-from mongo_connection import connect_mongo
+from Service2.postgres_connection import connect_postgres
+from Service2.mongo_connection import connect_mongo
 
 fake = Faker('pt_BR') 
 
