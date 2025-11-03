@@ -1,0 +1,5 @@
+faker
+pymongo
+psycopg2-binary
+astrapy
+python-dotenv
