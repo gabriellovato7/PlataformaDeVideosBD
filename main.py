@@ -188,10 +188,9 @@ def populate_astra(db_astra, listUser, videos):
     historico = db_astra.get_collection("historico_visualizacoes")
 
     registros = []
-    now = datetime.now()
 
     for user in listUser:
-        qtd_visualizacoes = random.randint(1, len(videos))
+        qtd_visualizacoes = random.randint(1, 15)
         videos_assistidos = random.sample(videos, qtd_visualizacoes)
 
         for video in videos_assistidos:
@@ -201,7 +200,7 @@ def populate_astra(db_astra, listUser, videos):
                 registro = {
                     "user_id": user["id"],
                     "user_name": user["name"],
-                    "id": video["id"],
+                    "video_id": video["id"],
                     "titulo": video["title"],
                     "tipo": video.get("type", "video"),
                     "data_visualizacao": data_visualizacao,
@@ -215,7 +214,7 @@ def populate_astra(db_astra, listUser, videos):
 
     if registros:
         historico.insert_many(registros)
-        print(f"{len(registros)} visualizações inseridas no Astra DB.")
+        print(f"{len(registros)} visualizações de vídeos, séries ou filmes inseridas no Astra DB.")
     else:
         print("Nenhum registro gerado (lista vazia).")
 
@@ -348,18 +347,8 @@ def main():
                 videosList += populate_mongo(mongo_db, 0, 0, numSeries)
 
             elif opcao == "5":
-                all_users = get_all_users(pg_conn)
-                all_videos = get_all_videos_mongo(mongo_db)
-
-                if not all_users:
-                    print("Nenhum usuário encontrado.")
-                elif not all_videos:
-                    print("Nenhum vídeo, filme ou série encontrado.")
-                else:
-                    populate_astra(astra_db, all_users, all_videos)
-                    print("Histórico gerado")
-
-
+                gerarHistorico(pg_conn, mongo_db, astra_db)
+                
             elif opcao == "6":
                 numUsers = int(input("Quantidade de usuários: "))
                 numVideos = int(input("Quantidade de vídeos: "))
@@ -388,12 +377,78 @@ def main():
                 print("Encerrando")
                 break
             else:
-                print("Opção inválida, tente novamente.")
+                print("Opção inválida.")
 
     finally:
         if pg_conn:
             pg_conn.close()
             print("conexao fechada")
+
+def gerarHistorico(pg_conn, mongo_db, astra_db):
+    all_users = get_all_users(pg_conn)
+    all_videos = get_all_videos_mongo(mongo_db)
+
+    if not all_users:
+        print("Nenhum usuário encontrado.")
+    elif not all_videos:
+        print("Nenhum vídeo, filme ou série encontrado.")
+
+    print("1 - Apenas vídeos")
+    print("2 - Apenas filmes")
+    print("3 - Apenas séries")
+    print("4 - Inserir tudo")
+    tipo_escolhido = input("Escolha uma opção: ")
+    if tipo_escolhido == "1":
+        all_videos = [v for v in all_videos if v["type"] == "video"]
+    elif tipo_escolhido == "2":
+        all_videos = [v for v in all_videos if v["type"] == "filme"]
+    elif tipo_escolhido == "3":
+        all_videos = [v for v in all_videos if v["type"] == "serie"]
+    elif tipo_escolhido == "4":
+        pass  
+    else:
+        print("Opção inválida.")
+        return
+
+    if not all_videos:
+        print("Erro, nada encontrado.")
+        return
+
+    print("\n=== GERAR HISTÓRICO ===")
+    print("1 - Para todos os usuários")
+    print("2 - Para um usuário específico")
+    print("3 - Para um número aleatório de usuários")
+    escolha_hist = input("Escolha uma opção: ")
+
+    if escolha_hist == "1":
+        populate_astra(astra_db, all_users, all_videos)
+        print("Histórico gerado para todos os usuários.")
+    elif escolha_hist == "2":
+        print("\nUsuários disponíveis:")
+        for u in all_users:
+            print(f"- ID: {u['id']} | Nome: {u['name']}")
+        user_id = input("Digite o ID do usuário: ")
+        user = next((u for u in all_users if str(u["id"]) == user_id), None)
+        if user:
+            populate_astra(astra_db, [user], all_videos)
+            print(f"Histórico gerado para o usuário {user['name']}.")
+        else:
+            print("Usuário não encontrado.")
+
+    elif escolha_hist == "3":
+        qtd = input(f"Quantos usuários aleatórios você quer gerar histórico? (máx: {len(all_users)}): ")
+        try:
+            qtd = int(qtd)
+            if qtd <= 0 or qtd > len(all_users):
+                print("Número inválido.")
+                return
+            usuarios_selecionados = random.sample(all_users, qtd)
+            populate_astra(astra_db, usuarios_selecionados, all_videos)
+            print(f"Histórico gerado para {qtd} usuários aleatórios.")
+        except ValueError:
+            print("Erro, Digite um número.")
+    else:
+        print("Opção inválida.")
 
 if __name__ == "__main__":
     main()
