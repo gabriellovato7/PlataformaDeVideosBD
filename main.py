@@ -8,6 +8,13 @@ from Service2.cassandra_connection import connected_cassandra
 
 fake = Faker('pt_BR') 
 
+def generateLog(mensagem):
+    horario = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    log = f"[{horario}] {mensagem}\n"
+    with open("arquivoLog.txt", "a", encoding="utf-8") as arquivo:
+        arquivo.write(log)
+    print(log.strip())
+
 def populate_postgres(conn, numUsers):
 
     listUser = []
@@ -31,6 +38,8 @@ def populate_postgres(conn, numUsers):
                 listUser.append({"id": userId, "name": name})
 
             conn.commit()
+            generateLog(f"[S1 → S2] Enviando {numUsers} usuários para o PostgreSQL...")
+            generateLog(f"[S2] {numUsers} usuários inseridos com sucesso no PostgreSQL.")
             print(f"{numUsers} usuários e assinaturas inseridos.")
             return listUser
 
@@ -39,7 +48,7 @@ def populate_postgres(conn, numUsers):
         print(f"Erro: {e}")
         return []
 
-def populate_mongo(db, numVideos, numFilms, numSeries):
+def populate_mongo(db, numVideos, numFilms, numSeries, numVIP):
 
     videosList = []
 
@@ -47,10 +56,12 @@ def populate_mongo(db, numVideos, numFilms, numSeries):
         collectionVideos = db["videos"]
         collectionFilms = db["filmes"]
         collectionSeries = db["series"]
+        collectionVideosVIP = db["videosVIP"]
 
         insertVideos = []
         insertFilms = []
         insertSeries = []
+        insertVideosVIP = []
 	
         temas = [
             "tecnologia", "culinária", "viagem", "música", "esportes",
@@ -172,25 +183,95 @@ def populate_mongo(db, numVideos, numFilms, numSeries):
                 "type": "serie"
             })
 
-        collectionVideos.insert_many(insertVideos)
-        collectionFilms.insert_many(insertFilms)
-        collectionSeries.insert_many(insertSeries)
-        print(f"{len(insertVideos)} vídeos inseridos no MongoDB.")
-        print(f"{len(insertFilms)} filmes inseridos no MongoDB.")
-        print(f"{len(insertSeries)} séries inseridas no MongoDB.")
+        for i in range(numVIP):
+            tema = random.choice(temas)
+            estrutura = random.choice(estruturas_titulo)
+            acao = random.choice(exemplos_acoes)
+
+            titulo = estrutura.format(tema=tema, acao=acao).capitalize()
+
+            descricao = (
+                f"Neste vídeo, você vai {acao} mais sobre {tema}. "
+                f"Falamos sobre dicas, curiosidades e informações importantes "
+                f"para quem se interessa por {tema}. Não se esqueça de curtir e se inscrever no canal!"
+            )
+
+            duracao_min = random.randint(5, 60)
+            duracao = f"{duracao_min} min"
+
+            tags = [tema] + fake.words(nb=random.randint(1, 4), unique=True)
+            upload_date = fake.date_time_between(
+                    start_date=datetime(2010, 1, 1),
+    				end_date=datetime(2025, 12, 31)
+            ).isoformat()
+
+            documentVIP = {
+                "_id": f"vip_{fake.uuid4()}",
+                "title": titulo + ' VIP',
+                "description": descricao,
+                "tags": tags,
+                "upload_date": upload_date,
+                "duration": duracao,
+                "views": random.randint(0, 1_000_000)
+            }
+            insertVideosVIP.append(documentVIP)
+
+            videosList.append({
+                "id": documentVIP["_id"],
+                "title": titulo,
+                "duration": duracao_min,
+                "type": "vip"
+            })
+
+        if insertVideos:
+            collectionVideos.insert_many(insertVideos)
+        if insertFilms:    
+            collectionFilms.insert_many(insertFilms)
+        if insertSeries:
+            collectionSeries.insert_many(insertSeries)
+        if insertVideosVIP:
+            collectionVideosVIP.insert_many(insertVideosVIP)
+        
+        generateLog("[S1 → S2] Enviando vídeos, filmes e séries para o MongoDB...")
+        generateLog(f"[S2] Inserção concluída no MongoDB ({len(videosList)} registros).")
+        if insertVideos:
+            print(f"{len(insertVideos)} vídeos inseridos no MongoDB.")
+        if insertFilms:
+            print(f"{len(insertFilms)} filmes inseridos no MongoDB.")
+        if insertSeries:
+            print(f"{len(insertSeries)} séries inseridas no MongoDB.")
+        if insertVideosVIP:
+            print(f"{len(insertVideosVIP)} vídeos VIP inseridas no MongoDB.")
         return videosList
 
     except Exception as e:
         print(f"Erro: {e}")
         return []
 
-def populate_astra(db_astra, listUser, videos):
+def populate_astra(db_astra, listUser, videos, mongo_db=None):
     historico = db_astra.get_collection("historico_visualizacoes")
 
     registros = []
 
+    collectionVIP = mongo_db["videosVIP"] if mongo_db else None
+    videosVIP = list(collectionVIP.find()) if collectionVIP else []
+
+    if not videos:
+        print("Nenhum vídeo disponível para gerar histórico.")
+        return
+
     for user in listUser:
-        qtd_visualizacoes = random.randint(1, 15)
+
+        plano = user.get("plan", random.choice(["básico", "premium", "família"]))
+        if plano in ["premium", "família"]:
+            videos_disponiveis = videos
+        else:
+            videos_disponiveis = [v for v in videos if v.get("type") != "vip"]
+        if not videos_disponiveis:
+            continue
+
+        limite_max = min(15, len(videos))
+        qtd_visualizacoes = random.randint(1, limite_max)
         videos_assistidos = random.sample(videos, qtd_visualizacoes)
 
         for video in videos_assistidos:
@@ -208,6 +289,9 @@ def populate_astra(db_astra, listUser, videos):
                     "dispositivo": random.choice(["desktop", "mobile", "tv"])
                 }
                 registros.append(registro)
+                generateLog("[S1 → S2] Enviando histórico de visualizações para o AstraDB...")
+                generateLog(f"[S2] {len(registros)} registros inseridos no AstraDB.")
+
 
             except Exception as e:
                 print(f"Erro ao gerar visualização para vídeo {video['id']}: {e}")
@@ -221,16 +305,24 @@ def populate_astra(db_astra, listUser, videos):
 def get_all_users(pg_conn):
     try:
         with pg_conn.cursor() as cursor:
-            cursor.execute("SELECT id, name FROM users;")
+            cursor.execute(
+                """
+                SELECT u.id, u.name, s.plan 
+                FROM users u
+                JOIN subscriptions s ON u.id = s.user_id;
+                """
+            )
             users = cursor.fetchall()
-            return [{"id": u[0], "name": u[1]} for u in users]
+            generateLog("[S1 → S2] Solicitando todos os usuários ao PostgreSQL...")
+            generateLog(f"[S2 → S1] {len(users)} usuários retornados do PostgreSQL.")
+            return [{"id": u[0], "name": u[1], "plan": u[2]} for u in users]
     except Exception as e:
         print(f"Erro ao buscar usuários: {e}")
         return []
     
 def get_all_videos_mongo(db):
     try:
-        collections = ["videos", "filmes", "series"]
+        collections = ["videos", "filmes", "series", "videosVIP"]
         all_videos = []
 
         for col_name in collections:
@@ -238,7 +330,15 @@ def get_all_videos_mongo(db):
             docs = list(collection.find())
 
             for doc in docs:
-                tipo = "video" if col_name == "videos" else "filme" if col_name == "filmes" else "serie"
+                tipo = "desconhecido"
+                if col_name == "videos":
+                    tipo = "video"
+                elif col_name == "filmes":
+                    tipo = "filme"
+                elif col_name == "series":
+                    tipo = "serie"
+                elif col_name == "videosVIP":
+                    tipo = "vip"
 
                 duracao_str = (
                     doc.get("duration") or
@@ -257,6 +357,8 @@ def get_all_videos_mongo(db):
                     "type": tipo
                 })
 
+        generateLog("[S1 → S2] Solicitando vídeos, filmes e séries ao MongoDB...")
+        generateLog(f"[S2 → S1] {len(all_videos)} registros retornados do MongoDB.")
         return all_videos
 
     except Exception as e:
@@ -293,7 +395,9 @@ def get_user_data(pg_conn, user_id):
 def get_user_history(astra_db, user_id):
     try:
         historico = astra_db.get_collection("historico_visualizacoes")
-        result = historico.find({"user_id": user_id})
+        result = list(historico.find({"user_id": user_id}))
+        generateLog(f"[S1 → S2] Solicitando histórico do usuário {user_id} ao AstraDB...")
+        generateLog(f"[S2 → S1] {len(result)} visualizações retornadas do AstraDB.")
         return list(result)
     except Exception as e:
         print(f"Erro ao buscar histórico no Astra DB: {e}")
@@ -319,9 +423,10 @@ def main():
             print("2 - Inserir vídeos")
             print("3 - Inserir filmes")
             print("4 - Inserir séries")
-            print("5 - Inserir histórico (Astra)")
-            print("6 - Inserir tudo (usuários, vídeos, filmes, séries e histórico)")
-            print("7 - Consultar dados de um usuário")
+            print("5 - Inserir vídeos VIP")
+            print("6 - Inserir histórico (Astra)")
+            print("7 - Inserir tudo (usuários, vídeos, filmes, séries e histórico)")
+            print("8 - Consultar dados de um usuário")
             print("0 - Sair")
             opcao = input("Escolha uma opção: ")
 
@@ -336,20 +441,24 @@ def main():
 
             elif opcao == "2":
                 numVideos = int(input("Digite a quantidade de vídeos que deseja inserir: "))
-                videosList += populate_mongo(mongo_db, numVideos, 0, 0)
+                videosList += populate_mongo(mongo_db, numVideos, 0, 0, 0)
 
             elif opcao == "3":
                 numFilms = int(input("Digite a quantidade de filmes que deseja inserir: "))
-                videosList += populate_mongo(mongo_db, 0, numFilms, 0)
+                videosList += populate_mongo(mongo_db, 0, numFilms, 0, 0)
 
             elif opcao == "4":
                 numSeries = int(input("Digite a quantidade de séries que deseja inserir: "))
-                videosList += populate_mongo(mongo_db, 0, 0, numSeries)
-
+                videosList += populate_mongo(mongo_db, 0, 0, numSeries, 0)
+            
             elif opcao == "5":
-                gerarHistorico(pg_conn, mongo_db, astra_db)
-                
+                numVideosVIP = int(input("Digite a quantidade de vídeos VIP que deseja inserir: "))
+                videosList += populate_mongo(mongo_db, 0, 0, 0, numVideosVIP)
+
             elif opcao == "6":
+                gerarHistorico(pg_conn, mongo_db, astra_db)
+
+            elif opcao == "7":
                 numUsers = int(input("Quantidade de usuários: "))
                 numVideos = int(input("Quantidade de vídeos: "))
                 numFilms = int(input("Quantidade de filmes: "))
@@ -358,8 +467,8 @@ def main():
                 videosList = populate_mongo(mongo_db, numVideos, numFilms, numSeries)
                 populate_astra(astra_db, listUser, videosList)
                 print("Inserção concluída.")
-
-            elif opcao == "7":
+                
+            elif opcao == "8":
                 user_id = input("Digite o ID do usuário: ")
                 user_data = get_user_data(pg_conn, user_id)
                 if not user_data:
@@ -431,7 +540,6 @@ def gerarHistorico(pg_conn, mongo_db, astra_db):
         user = next((u for u in all_users if str(u["id"]) == user_id), None)
         if user:
             populate_astra(astra_db, [user], all_videos)
-            print(f"Histórico gerado para o usuário {user['name']}.")
         else:
             print("Usuário não encontrado.")
 
