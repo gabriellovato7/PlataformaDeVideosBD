@@ -120,6 +120,39 @@ Execute a main.py e assim rodara um menu intuitivo para você selecionar se dese
 | **S2/mongo_connection.py**     | Conecta ao banco de documentos       | MongoDB (Atlas/AWS)   |
 | **S2/cassandra_connection.py** | Conecta ao banco colunar distribuído | Astra DB (Cassandra)  |
 
+### 6. Sistema de Logs
+
+Durante a execução, o sistema gera automaticamente um arquivo arquivoLog.txt na raiz do projeto. Esse arquivo registra todas as interações entre os serviços S1 e S2, incluindo horário, ação e banco envolvido.
+
+#### Exemplo: 
+
+[2025-11-12 00:09:37] [S1 → S2] Enviando 1 usuários para o PostgreSQL...
+
+[2025-11-12 00:09:37] [S2] 1 usuários inseridos com sucesso no PostgreSQL.
+
+[2025-11-12 00:09:41] [S1 → S2] Enviando vídeos, filmes e séries para o MongoDB...
+
+[2025-11-12 00:09:41] [S2] Inserção concluída no MongoDB (1 registros).
+
+[2025-11-12 00:09:46] [S1 → S2] Enviando vídeos, filmes e séries para o MongoDB...
+
+[2025-11-12 00:09:46] [S2] Inserção concluída no MongoDB (1 registros).
+
+[2025-11-12 00:09:48] [S1 → S2] Solicitando todos os usuários ao PostgreSQL...
+
+[2025-11-12 00:09:48] [S2 → S1] 162 usuários retornados do PostgreSQL.
+
+[2025-11-12 00:09:48] [S1 → S2] Solicitando vídeos, filmes e séries ao MongoDB...
+
+[2025-11-12 00:09:48] [S2 → S1] 398 registros retornados do MongoDB.
+
+[2025-11-12 00:09:55] [S1 → S2] Enviando histórico de visualizações para o AstraDB...
+
+[2025-11-12 00:09:55] [S2] 1 registros inseridos no AstraDB.
+
+[2025-11-12 00:09:55] [S1 → S2] Enviando histórico de visualizações para o AstraDB...
+
+[2025-11-12 00:09:55] [S2] 2 registros inseridos no AstraDB.
 
 ## Conclusão
 
