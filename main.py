@@ -463,8 +463,9 @@ def main():
                 numVideos = int(input("Quantidade de vídeos: "))
                 numFilms = int(input("Quantidade de filmes: "))
                 numSeries = int(input("Quantidade de séries: "))
+                numVIP = int(input("Digite a quantidade de vídeos VIP: "))
                 listUser = populate_postgres(pg_conn, numUsers)
-                videosList = populate_mongo(mongo_db, numVideos, numFilms, numSeries)
+                videosList = populate_mongo(mongo_db, numVideos, numFilms, numSeries, numVIP)
                 populate_astra(astra_db, listUser, videosList)
                 print("Inserção concluída.")
                 
