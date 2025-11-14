@@ -159,5 +159,5 @@ Durante a execução, o sistema gera automaticamente um arquivo arquivoLog.txt n
 O projeto demonstrou a integração entre diferentes tipos de bancos de dados dentro de um mesmo sistema, aplicando o conceito de persistência poliglota.
 Cada tecnologia foi escolhida de acordo com suas características e pontos fortes, garantindo desempenho, consistência e flexibilidade.
 
-O resultado é uma aplicação capaz de simular uma plataforma de vídeos com armazenamento eficiente e distribuído, mostrando na prática como soluções híbridas podem ser aplicadas em cenários reais de ecologia de dados e sustentabilidade tecnológica.
+O resultado é uma aplicação capaz de simular uma plataforma de vídeos com armazenamento eficiente e distribuído, mostrando na prática como soluções híbridas podem ser aplicadas em cenários reais.
 
